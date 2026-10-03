@@ -9,6 +9,8 @@ class Applet;
 enum class Placement : uint8_t {
   AppMenu,      // appears in the app menu
   LaunchOnly,   // launched programmatically, not listed
+  GamesMenu,    // appears in the Games submenu (mishmesh/applets/GamesApplet), not the top-level app menu
+  UtilityMenu,  // appears in the Utility submenu (mishmesh/applets/UtilityApplet), not the top-level app menu
 };
 
 struct AppletRegistration {

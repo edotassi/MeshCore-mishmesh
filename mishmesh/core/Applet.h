@@ -12,6 +12,7 @@ class AppletHost;
 struct ContactsService;   // mishmesh/core/ContactsService.h
 namespace sound { class SoundEngine; }
 class AirtimeHistory;     // mishmesh/core/AirtimeHistory.h
+class BatteryHistory;     // mishmesh/core/BatteryHistory.h
 
 // Snapshot of device health for the System stats screen. Plain integers so the
 // framework stays free of companion/platform types. 0 (or nullptr) means
@@ -46,6 +47,15 @@ struct AirtimeStats {
   uint32_t recvFlood    = 0;
   uint32_t recvDirect   = 0;
   const AirtimeHistory* history = nullptr;
+};
+
+// Battery voltage for the Battery applet. currentMv is a fresh, live
+// (unsmoothed) reading; history (may be null) is the persisted 24h ring
+// (sampled/saved in the background regardless of which applet is open) the
+// chart reads. 0 fields render as "--".
+struct BatteryStats {
+  uint16_t currentMv = 0;
+  const BatteryHistory* history = nullptr;
 };
 
 // LoRa radio configuration surfaced to the on-device UI. Units match NodePrefs:
@@ -126,6 +136,15 @@ struct AppServices {
   // so a stale last fix never shows. Satellites: 0 = none/unknown.
   virtual bool gpsHasFix() const { return false; }
   virtual int  gpsSatellites() const { return 0; }
+  // Speed over ground (km/h), course/heading (degrees clockwise from North,
+  // 0-359) and altitude (m) - meaningful only while gpsHasFix(). Defaults
+  // keep the framework companion-agnostic (unsupported).
+  virtual float gpsSpeedKmh()   const { return 0.0f; }
+  virtual int   gpsHeadingDeg() const { return 0; }
+  virtual float gpsAltitudeM()  const { return 0.0f; }
+  // Coordinates in degrees (+north/+east), also valid only while gpsHasFix().
+  virtual float gpsLatitude()  const { return 0.0f; }
+  virtual float gpsLongitude() const { return 0.0f; }
   // Screen auto-off timeout, as an index into the mishmesh SCREEN_SLEEP options
   // (mishmesh/core/ScreenSleep.h). Default index 1 = 30s. The adapter persists
   // it to NodePrefs and applies it live to the AppletHost.
@@ -168,6 +187,15 @@ struct AppServices {
   // Radio airtime / duty-cycle usage for the Airtime applet. Returns false if
   // unavailable. Default keeps the framework companion-agnostic.
   virtual bool airtimeStats(AirtimeStats& out) const { (void)out; return false; }
+  // Battery voltage history for the Battery applet. Returns false if
+  // unavailable. Default keeps the framework companion-agnostic.
+  virtual bool batteryHistory(BatteryStats& out) const { (void)out; return false; }
+  // Live LoRa radio noise floor (ambient channel noise, not tied to any
+  // received packet), in dBm. Cheap/synchronous - read straight off the
+  // radio driver each call, unlike the async repeater-status noise floor.
+  // INT16_MIN = unavailable/unsupported. Default keeps the framework
+  // companion-agnostic.
+  virtual int16_t noiseFloorDbm() const { return INT16_MIN; }
   // Wipe all persisted state (settings, contacts, channels, messages) and reboot.
   // keepIdentity preserves the node keypair; false yields a fresh key on boot. Does
   // not return. Default no-op keeps the framework companion-agnostic.

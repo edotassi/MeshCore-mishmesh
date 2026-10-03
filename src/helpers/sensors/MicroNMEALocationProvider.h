@@ -124,7 +124,13 @@ public :
     long satellitesCount() override { return nmea.getNumSatellites(); }
     bool isValid() override { return nmea.isValid(); }
 
-    long getTimestamp() override { 
+    // [mishmesh]
+    long getSpeed() override { return nmea.getSpeed(); }
+    long getCourse() override { return nmea.getCourse(); }
+    uint8_t getHDOP() override { return nmea.getHDOP(); }
+    // [/mishmesh]
+
+    long getTimestamp() override {
         DateTime dt(nmea.getYear(), nmea.getMonth(),nmea.getDay(),nmea.getHour(),nmea.getMinute(),nmea.getSecond());
         return dt.unixtime();
     } 

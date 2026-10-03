@@ -13,6 +13,10 @@ namespace mishmesh {
 // small QR (~v2, 25 modules) that stays crisp at 2px/module on a 128x64 panel.
 static const char SUPPORT_URL[] = "https://ko-fi.com/burak_can";
 
+// This fork's own build label, separate from the upstream mishmesh/meshcore
+// version lines below it.
+static const char CUSTOM_BUILD_LABEL[] = "edotax v2";
+
 const char* AboutApplet::qrTextForTest() const { return SUPPORT_URL; }
 
 void AboutApplet::onStart(AppletContext& ctx) {
@@ -60,11 +64,12 @@ int AboutApplet::onRender(Canvas& c) {
     r.drawText(f, 0, y, "ko-fi.com/", DisplayDriver::LIGHT); y += lh;
     r.drawText(f, 0, y, "burak_can", DisplayDriver::LIGHT);
 
-    // Both versions pinned to the bottom: mishmesh on the last row, firmware
-    // just above it.
+    // Pinned to the bottom, mishmesh on the last row working upward: mishmesh
+    // version, firmware version, then this fork's own build label.
     int vy = r.height() - lh;
     if (_mmVersion[0]) { r.drawText(f, 0, vy, _mmVersion, DisplayDriver::LIGHT); vy -= lh; }
-    if (_version[0])     r.drawText(f, 0, vy, _version, DisplayDriver::LIGHT);
+    if (_version[0])   { r.drawText(f, 0, vy, _version, DisplayDriver::LIGHT); vy -= lh; }
+    r.drawText(f, 0, vy, CUSTOM_BUILD_LABEL, DisplayDriver::LIGHT);
   }
   return 1000;
 }
@@ -78,7 +83,7 @@ AboutApplet& aboutApplet() {
   return a;
 }
 
-MISHMESH_REGISTER_APPLET_ICON(&aboutApplet(), Placement::AppMenu, "About", 10,
-                              (uint16_t)Icon::Coffee);   // coffee cup = support
+MISHMESH_REGISTER_APPLET_ICON(&aboutApplet(), Placement::AppMenu, "About", 12,
+                              (uint16_t)Icon::Coffee);   // coffee cup = support; last in the menu
 
 }  // namespace mishmesh

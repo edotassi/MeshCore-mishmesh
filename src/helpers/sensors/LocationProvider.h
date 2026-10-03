@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include "Mesh.h"
 
 
@@ -22,6 +23,14 @@ public:
     virtual long satellitesCount() = 0;
     virtual bool isValid() = 0;
     virtual long getTimestamp() = 0;
+    // [mishmesh] speed over ground (thousandths of a knot), course clockwise
+    // from North (thousandths of a degree), and horizontal dilution of
+    // precision (tenths) - not every backend parses these, so they default
+    // to 0 (unknown) rather than being pure virtual.
+    virtual long getSpeed() { return 0; }
+    virtual long getCourse() { return 0; }
+    virtual uint8_t getHDOP() { return 0; }
+    // [/mishmesh]
     virtual void sendSentence(const char * sentence);
     virtual void reset() = 0;
     virtual void begin() = 0;

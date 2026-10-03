@@ -267,6 +267,7 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   if (_display && _display->supportsOrientation())
     _display->setDisplayRotation(mishmesh::uiPrefs().rotation());
   mishmesh::clockService().begin(&_theStorage);   // alarm / world cities / timer duration
+  _batteryHistory.load(&_theStorage, "batt_hist");   // reload the 24h ring across a reboot
   ctx.sound = &_sound;
   _host = new mishmesh::AppletHost(_display, ctx);
   // A panel flush blocks this loop for hundreds of ms, and the sequencer only
@@ -554,6 +555,22 @@ void UITask::loop() {
     // minute rollover, and runs regardless of the active applet so the graph has
     // history even when it wasn't on screen.
     _airtime.tick(millis(), the_mesh.getTotalAirTime(), the_mesh.getReceiveAirTime());
+    // Battery history: sampled + persisted on a coarse interval (matching the
+    // chart's own bucket width) rather than every loop pass, since
+    // batteryMillivoltsLive() is an unthrottled raw ADC read that can block
+    // for tens of ms on some boards. Runs regardless of the active applet, and
+    // survives a reboot via AppletStorage.
+    uint32_t nowMs = millis();
+    // Retry every 8s (same cadence as the smoothed status-bar reader) until the
+    // clock syncs and the first sample actually lands; once primed, back off to
+    // the chart's own bucket width.
+    uint32_t battHistInterval = _batteryHistory.primed()
+        ? mishmesh::BatteryHistory::BUCKET_SECS * 1000UL : 8000UL;
+    if (nowMs - _battHistAt >= battHistInterval) {
+      _battHistAt = nowMs;
+      _batteryHistory.tick(epochSeconds(), batteryMillivoltsLive());
+      if (_batteryHistory.primed()) _batteryHistory.save(&_theStorage, "batt_hist");
+    }
     _host->loop(millis());
   }
 }

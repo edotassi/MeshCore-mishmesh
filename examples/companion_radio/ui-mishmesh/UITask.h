@@ -39,6 +39,7 @@
 #include <mishmesh/sound/SoundEngine.h>
 #include <mishmesh/sound/Sounds.h>
 #include <mishmesh/core/AirtimeHistory.h>
+#include <mishmesh/core/BatteryHistory.h>
 #include <mishmesh/core/ContactsFullLatch.h>
 #include <mishmesh/applets/ContactsFullApplet.h>
 #include <mishmesh/core/ExtraFsMsgBackend.h>
@@ -160,6 +161,14 @@ class UITask : public AbstractUITask, public mishmesh::AppServices, public mishm
   // Dispatcher's cumulative counters so it accrues even while the screen is off.
   mishmesh::AirtimeHistory _airtime;
 
+  // 24h battery voltage history for the Battery applet. Sampled + persisted to
+  // /mm/batt_hist every BATT_HIST_INTERVAL_MS in loop(), so it accrues even
+  // while the screen is off and survives a reboot. batteryMillivoltsLive() can
+  // block for tens of ms on some boards, hence the coarse interval rather than
+  // sampling every loop pass like _airtime does.
+  mishmesh::BatteryHistory _batteryHistory;
+  uint32_t _battHistAt = 0;   // next due time for the sample+persist tick
+
   // One-shot "contacts full" latch; fed live counts in loop(). Fires the banner on
   // the not-full -> full transition when overwrite is off and the alert is enabled.
   mishmesh::ContactsFullLatch _contactsFullLatch;
@@ -212,6 +221,12 @@ public:
   uint32_t epochSeconds() const override;
   bool systemStats(mishmesh::SystemStats& out) const override;
   bool airtimeStats(mishmesh::AirtimeStats& out) const override;
+  bool batteryHistory(mishmesh::BatteryStats& out) const override {
+    out.currentMv = batteryMillivoltsLive();
+    out.history = &_batteryHistory;
+    return true;
+  }
+  int16_t noiseFloorDbm() const override { return (int16_t)radio_driver.getNoiseFloor(); }
   void factoryReset(bool keepIdentity) override { the_mesh.uiFactoryReset(keepIdentity); }
   void selfPublicKeyHex(char* out, size_t cap, int bytes) const override {
     if (!out || !cap) return;
@@ -474,6 +489,31 @@ public:
   int gpsSatellites() const override {
     LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
     return (lp && gpsEnabled()) ? (int)lp->satellitesCount() : 0;
+  }
+  float gpsSpeedKmh() const override {
+    LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
+    if (!lp || !gpsEnabled()) return 0.0f;
+    return (float)lp->getSpeed() * 0.001f * 1.852f;   // thousandths of a knot -> km/h
+  }
+  int gpsHeadingDeg() const override {
+    LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
+    if (!lp || !gpsEnabled()) return 0;
+    return (int)(lp->getCourse() / 1000);   // thousandths of a degree -> degrees
+  }
+  float gpsAltitudeM() const override {
+    LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
+    if (!lp || !gpsEnabled()) return 0.0f;
+    return (float)lp->getAltitude() * 0.001f;   // mm -> m
+  }
+  float gpsLatitude() const override {
+    LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
+    if (!lp || !gpsEnabled()) return 0.0f;
+    return (float)lp->getLatitude() * 0.000001f;   // millionths of a degree -> degrees
+  }
+  float gpsLongitude() const override {
+    LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
+    if (!lp || !gpsEnabled()) return 0.0f;
+    return (float)lp->getLongitude() * 0.000001f;
   }
 
   // mishmesh::ContactsService

@@ -167,7 +167,7 @@ AirtimeApplet& airtimeApplet() {
   return a;
 }
 
-MISHMESH_REGISTER_APPLET_ICON(&airtimeApplet(), Placement::AppMenu, "Airtime", 6,
+MISHMESH_REGISTER_APPLET_ICON(&airtimeApplet(), Placement::UtilityMenu, "Airtime", 2,
                               (uint16_t)Icon::Zap);   // lightning = transmit airtime
 
 }  // namespace mishmesh

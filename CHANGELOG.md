@@ -9,6 +9,16 @@ its heading with `## v<version>`.
 
 ## Unreleased
 
+## v1.6.0
+
+- GPS applet: speed, heading, altitude and position from the onboard GPS.
+- Battery history: 24h voltage graph, persisted across reboots.
+- App menu split into Games and Utility submenus.
+- New games: Snake, Tetris, Breakout, Space Invaders.
+- Noise Floor applet in Utility.
+- Auto advert: periodic flood self-advert (Off / 15 min - 6 hours) in Advert settings, so a node without a phone stays visible on the mesh.
+- Reclaim the extrafs flash region on Wio Tracker L1 companion builds.
+
 ## v1.5.0
 
 - E-ink support - the Wio Tracker L1 E-Ink is now a build target.

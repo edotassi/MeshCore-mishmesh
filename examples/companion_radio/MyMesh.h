@@ -71,6 +71,7 @@
 #include <helpers/TransportKeyStore.h>
 // [mishmesh]
 #include <mishmesh/core/MessageStore.h>
+#include <mishmesh/core/AutoAdvert.h>
 // [/mishmesh]
 
 /* -------------------------------------------------------------------------------------- */
@@ -108,6 +109,10 @@ public:
   // On-device advert trigger for the mishmesh UI. false = zero hop, true = flood
   // routed (default transport scope). Mirrors the CMD_SEND_SELF_ADVERT handler.
   bool sendSelfAdvert(bool flood);
+  // Re-arms next_auto_advert from _prefs.auto_advert. Called once at boot and
+  // again whenever the UI changes the setting, so a shortened interval doesn't
+  // wait out the old one and a lengthened one doesn't fire early.
+  void updateAutoAdvertTimer();
   // [/mishmesh]
   void enterCLIRescue();
 
@@ -396,6 +401,7 @@ private:
   unsigned long dirty_contacts_expiry;
 
   // [mishmesh]
+  unsigned long next_auto_advert = 0;   // 0 = timer off (see updateAutoAdvertTimer)
   TelemetryLatch _ui_telemetry = {};
   PingLatch _ui_ping = {};
   CliLatch _ui_cli[MM_CLI_SLOTS] = {};

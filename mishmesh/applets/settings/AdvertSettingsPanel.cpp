@@ -18,6 +18,7 @@ void AdvertSettingsPanel::begin(AppletContext& ctx) {
 
 int AdvertSettingsPanel::renderBody(Canvas& c, int x, int y, int w, int h) {
   _list.draw(c, x, y, w, h);
+  if (_editingAutoAdvert) { _stepper.draw(c, 0, 0, c.width(), c.height()); return 100; }
   return _list.needsAnimation() ? ListMenu::TICK_MS : 1000;
 }
 
@@ -29,7 +30,25 @@ void AdvertSettingsPanel::onNameDone(void* ctx, const char* text) {
   self->_app->setNodeName(text);
 }
 
+static void autoAdvertStepLabel(int idx, char* out, uint16_t cap) {
+  strncpy(out, autoAdvertLabel(idx), cap - 1);
+  out[cap - 1] = 0;
+}
+
 bool AdvertSettingsPanel::onInput(InputEvent ev) {
+  if (_editingAutoAdvert) {
+    if (_stepper.onInput(ev)) {
+      if (_stepper.result() == StepperResult::Confirmed && _app) {
+        _app->setAutoAdvertIndex((uint8_t)_stepper.value());
+      }
+      if (_stepper.result() != StepperResult::None) {
+        _editingAutoAdvert = false;
+        _stepper.reset();
+      }
+    }
+    return true;   // swallow everything while modal
+  }
+
   if (_list.onInput(ev)) return true;
   if (ev == InputEvent::Select && _app) {
     int i = _list.selected();
@@ -40,8 +59,12 @@ bool AdvertSettingsPanel::onInput(InputEvent ev) {
       keypadApplet().configure(_nameBuf, sizeof(_nameBuf) - 1, "Device name",
                                &AdvertSettingsPanel::onNameDone, this);
       if (_host) _host->push(&keypadApplet());
-    } else {   // SharePosition
+    } else if (i == Model::SharePosition) {
       _app->setShareLocationInAdvert(!_app->shareLocationInAdvert());
+    } else {   // AutoAdvert
+      _stepper.configure("Auto advert", _app->autoAdvertIndex(), 0, AUTO_ADVERT_COUNT - 1,
+                         autoAdvertStepLabel);
+      _editingAutoAdvert = true;
     }
     return true;
   }

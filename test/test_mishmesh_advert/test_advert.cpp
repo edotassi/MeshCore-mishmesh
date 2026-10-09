@@ -41,11 +41,14 @@ class FakeNameApp : public AppServices {
 public:
   char name[32] = "Old";
   bool share = false;
+  uint8_t autoAdvert = 0;
   const char* nodeName() const override { return name; }
   uint16_t batteryMillivolts() const override { return 0; }
   uint32_t epochSeconds() const override { return 0; }
   bool shareLocationInAdvert() const override { return share; }
   void setShareLocationInAdvert(bool on) override { share = on; }
+  uint8_t autoAdvertIndex() const override { return autoAdvert; }
+  void setAutoAdvertIndex(uint8_t idx) override { autoAdvert = idx; }
   bool setNodeName(const char* n) override {
     if (!isValidNodeName(n)) return false;
     strncpy(name, n, sizeof(name) - 1); name[sizeof(name) - 1] = 0; return true;
@@ -58,10 +61,28 @@ TEST(AdvertSettingsPanel, ModelRowsAndValues) {
   AppletContext ctx; ctx.app = &app;
   AdvertSettingsPanel& p = advertSettings();
   p.begin(ctx);
-  EXPECT_EQ(2, p.rowCountForTest());
+  EXPECT_EQ(3, p.rowCountForTest());
   EXPECT_STREQ("Device name",    p.labelForTest(0));
   EXPECT_STREQ("Share position", p.labelForTest(1));
+  EXPECT_STREQ("Auto advert",    p.labelForTest(2));
   EXPECT_STREQ("Old",            p.valueForTest(0));
+  EXPECT_STREQ("Off",            p.valueForTest(2));   // default: unattended advert off
+}
+
+TEST(AdvertSettingsPanel, AutoAdvertRowStepsAndConfirms) {
+  FakeNameApp app;
+  AppletContext ctx; ctx.app = &app;
+  AdvertSettingsPanel& p = advertSettings();
+  p.begin(ctx);
+  EXPECT_TRUE(p.onInput(InputEvent::NavDown));   // -> row 1 (Share position)
+  EXPECT_TRUE(p.onInput(InputEvent::NavDown));   // -> row 2 (Auto advert)
+  EXPECT_TRUE(p.onInput(InputEvent::Select));    // opens the stepper at the current index (0)
+  EXPECT_TRUE(p.modalActive());
+  EXPECT_TRUE(p.onInput(InputEvent::NavRight));  // 0 -> 1 (15 min)
+  EXPECT_TRUE(p.onInput(InputEvent::Select));    // confirm
+  EXPECT_FALSE(p.modalActive());
+  EXPECT_EQ(1, app.autoAdvert);
+  EXPECT_STREQ("15 min", p.valueForTest(2));
 }
 
 TEST(AdvertSettingsPanel, SharePositionRowStillToggles) {

@@ -1593,6 +1593,7 @@ void MyMesh::begin(bool has_display) {
     _prefs.sound_volume = 2;        // Mid
     _prefs.sound_mute_mask = 0x0F;  // all 4 sound categories enabled
   }
+  updateAutoAdvertTimer();   // [mishmesh] arm the periodic flood advert, if configured
 
 #ifdef BLE_PIN_CODE // 123456 by default
   if (_prefs.ble_pin == 0) {
@@ -2911,6 +2912,13 @@ void MyMesh::checkSerialInterface() {
 void MyMesh::loop() {
   BaseChatMesh::loop();
 
+  // [mishmesh] unattended periodic re-advert, flood routed so it actually
+  // reaches contacts beyond direct neighbours. See updateAutoAdvertTimer().
+  if (next_auto_advert && millisHasNowPassed(next_auto_advert)) {
+    sendSelfAdvert(true);
+    updateAutoAdvertTimer();
+  }
+
   if (_cli_rescue) {
     checkCLIRescueCmd();
   } else {
@@ -2957,6 +2965,15 @@ bool MyMesh::sendSelfAdvert(bool flood) {
   memcpy(&default_scope.key, _prefs.default_scope_key, sizeof(default_scope.key));
   sendFloodScoped(default_scope, pkt, 0);
   return true;
+}
+
+void MyMesh::updateAutoAdvertTimer() {
+  uint32_t mins = mishmesh::autoAdvertMinutes(mishmesh::autoAdvertStoredToIndex(_prefs.auto_advert));
+  if (mins > 0) {
+    next_auto_advert = futureMillis(mins * 60 * 1000);
+  } else {
+    next_auto_advert = 0;   // stop the timer
+  }
 }
 // [/mishmesh]
 

@@ -35,6 +35,7 @@
 #include <mishmesh/core/ScreenSleep.h>
 #include <mishmesh/core/SleepScreen.h>
 #include <mishmesh/core/WakeHome.h>
+#include <mishmesh/core/AutoAdvert.h>
 #include <mishmesh/core/NameValidation.h>
 #include <mishmesh/sound/SoundEngine.h>
 #include <mishmesh/sound/Sounds.h>
@@ -274,6 +275,17 @@ public:
     if (!p) return;
     p->advert_loc_policy = on ? ADVERT_LOC_SHARE : ADVERT_LOC_NONE;
     the_mesh.savePrefs();
+  }
+  uint8_t autoAdvertIndex() const override {
+    NodePrefs* p = the_mesh.getNodePrefs();
+    return p ? (uint8_t)mishmesh::autoAdvertStoredToIndex(p->auto_advert) : 0;
+  }
+  void setAutoAdvertIndex(uint8_t idx) override {
+    NodePrefs* p = the_mesh.getNodePrefs();
+    if (!p) return;
+    p->auto_advert = mishmesh::autoAdvertIndexToStored(idx);
+    the_mesh.savePrefs();
+    the_mesh.updateAutoAdvertTimer();   // apply immediately, don't wait for reboot
   }
   uint8_t pathHashMode() const override {
     NodePrefs* p = the_mesh.getNodePrefs();

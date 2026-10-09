@@ -69,6 +69,7 @@ public:
   uint8_t sleep_screen = 0;      // e-ink sleep face; index into mishmesh/core/SleepScreen.h (0 = Screen off)
   uint8_t sleep_rotation = 0;    // orientation for a face that reads either way; 0 = Auto (follow the screen)
   uint8_t wake_home = 0;         // how long asleep before a wake returns to home; 0=unset(=2m), else index+1 (see WakeHome.h)
+  uint8_t auto_advert = 0;       // periodic unattended flood self-advert; 0=unset(=Off), else index+1 (see AutoAdvert.h)
   // Written as 1 by savePrefs; still 0 after a load means the file has no "mm"
   // object, i.e. it was written by stock MeshCore and this is a first mishmesh boot.
   uint8_t mm_ver = 0;
@@ -154,6 +155,7 @@ private:
       def("slpscr", _parent->sleep_screen);
       def("slprot", _parent->sleep_rotation);
       def("wakehome", _parent->wake_home);
+      def("auto_adv", _parent->auto_advert);
       def("rpt_freq", _parent->repeat_saved_freq);
       def("ble_en", _parent->ble_enabled);
       def("cfull_notif", _parent->contacts_full_notify);

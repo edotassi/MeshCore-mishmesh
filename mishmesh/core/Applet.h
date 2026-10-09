@@ -94,6 +94,13 @@ struct AppServices {
   // Defaults keep the framework companion-agnostic (off, not settable).
   virtual bool shareLocationInAdvert() const { return false; }
   virtual void setShareLocationInAdvert(bool) {}
+  // Unattended periodic flood self-advert, as an index into the mishmesh
+  // AutoAdvert options (mishmesh/core/AutoAdvert.h): 0 = Off. Lets a node with
+  // no phone to re-advertise it keep the mesh (and anyone watching its
+  // location) current on its own. Defaults keep the framework
+  // companion-agnostic (Off, not settable).
+  virtual uint8_t autoAdvertIndex() const { return 0; }
+  virtual void    setAutoAdvertIndex(uint8_t) {}
   // Path-hash size this node stamps on floods it originates: 0/1/2 = 1/2/3 bytes
   // per hop (NodePrefs.path_hash_mode). Higher sizes disambiguate nodes but are
   // dropped by repeaters on firmware < 1.14 and cut the max flood hop count.

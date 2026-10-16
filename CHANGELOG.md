@@ -9,6 +9,10 @@ its heading with `## v<version>`.
 
 ## Unreleased
 
+- MeshCore base updated to v1.18.0 (WiFi interface, new boards, GPS fast-fix,
+  routing fixes). The UI now hooks in through the new `MyMesh::Listener`.
+- E-ink: the sleep face stays on the panel after the screen turns off, since 1.18 would otherwise wipe it on power-down.
+
 ## v1.6.0
 
 - GPS applet: speed, heading, altitude and position from the onboard GPS.

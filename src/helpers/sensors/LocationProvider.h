@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 #include "Mesh.h"
+#include <stddef.h>
+#include <stdio.h>
 
 
 class LocationProvider {
@@ -32,9 +34,21 @@ public:
     virtual uint8_t getHDOP() { return 0; }
     // [/mishmesh]
     virtual void sendSentence(const char * sentence);
+    virtual bool waitFor(const char* prefix, uint32_t timeout_ms) { return false; }
+    virtual void drain() { }
     virtual void reset() = 0;
     virtual void begin() = 0;
     virtual void stop() = 0;
     virtual void loop() = 0;
     virtual bool isEnabled() = 0;
+
+    // Format compact diagnostics in the caller-provided buffer. Providers that
+    // have more information (for example UART counters) can override this.
+    virtual void formatDiagnostics(char* out, size_t out_size) {
+        if (out_size == 0) return;
+        snprintf(out, out_size, "en:%u sat:%ld fix:%u",
+            isEnabled() ? 1U : 0U,
+            satellitesCount(),
+            isValid() ? 1U : 0U);
+    }
 };

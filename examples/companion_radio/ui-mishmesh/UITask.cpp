@@ -326,15 +326,21 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
   _sound.play(mishmesh::sound::SoundId::BootJingle);
 }
 
-void UITask::msgRead(int /*msgcount*/) {
-}
-
-void UITask::newMsg(uint8_t /*path_len*/, const char* /*from_name*/,
-                    const char* /*text*/, int /*msgcount*/) {
-  // store capture already happened in MyMesh::queueMessage; just schedule
-  // a flush. Fired from inside a mesh recv callback, so don't drive the render
+void UITask::onMessageRecv(mesh::Packet* /*pkt*/, const ContactInfo& /*from*/, uint8_t txt_type,
+                           uint32_t /*sender_timestamp*/, const char* /*text*/) {
+  // we only want to show text messages on display, not cli data
+  if (!(txt_type == TXT_TYPE_PLAIN || txt_type == TXT_TYPE_SIGNED_PLAIN)) return;
+  // MyMesh appends to the store right after this returns; just schedule a
+  // flush. Fired from inside a mesh recv callback, so don't drive the render
   // pipeline here - the next UITask::loop() repaints naturally.
   _msgFlushAt = millis() + 8000;
+  if (!hasConnection()) notify(UIEventType::contactMessage);
+}
+
+void UITask::onChannelMessageRecv(mesh::Packet* /*pkt*/, ChannelDetails& /*channel_details*/,
+                                  const char* /*text*/) {
+  _msgFlushAt = millis() + 8000;
+  if (!hasConnection()) notify(UIEventType::channelMessage);
 }
 
 void UITask::notify(UIEventType t) {

@@ -47,6 +47,11 @@
   #define EINK_Y_OFFSET 10
 #endif
 // [/mishmesh]
+#ifndef EINK_MAX_PARTIAL_REFRESH
+  // 60 to prevent ghosting when refreshing every minute ...
+  // set to -1 to disable the counter
+  #define EINK_MAX_PARTIAL_REFRESH -1
+#endif
 
 class GxEPDDisplay : public DisplayDriver {
 public:
@@ -73,6 +78,8 @@ private:
   uint16_t _curr_color;
   CRC32 display_crc;
   int last_display_crc_value = 0;
+  int _cycles_before_full_refresh;
+  int max_partial_refresh = EINK_MAX_PARTIAL_REFRESH; // so this can be changed by an option after
 
   // [mishmesh] Scale both edges, then subtract. Scaling w/h independently of x/y
   // truncates twice, so abutting rects leave 1px seams on the panel.
@@ -93,6 +100,8 @@ public:
 
   bool isOn() override { return _isOn; }
   bool isEink() override { return true; }
+  void forceFullRefresh() override { _cycles_before_full_refresh = 0; };
+  void resetPartialRefreshCounter() { _cycles_before_full_refresh = max_partial_refresh; };
   // [mishmesh] window_bkg is GxEPD_WHITE here; see DisplayDriver::hasLightBackground
   bool hasLightBackground() const override { return true; }
   bool supportsUiScale() const override;

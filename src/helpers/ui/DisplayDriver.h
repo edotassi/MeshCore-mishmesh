@@ -31,6 +31,7 @@ public:
 
   virtual bool isOn() = 0;
   virtual bool isEink() { return false; } // default to non-eink, override in eink drivers
+  virtual void forceFullRefresh() {} // next refresh will be full for eink
   // [mishmesh] optional panel brightness (contrast); default unsupported
   virtual bool supportsBrightness() const { return false; }
   virtual void setBrightness(uint8_t value) { (void)value; }

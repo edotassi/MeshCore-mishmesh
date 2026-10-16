@@ -9,9 +9,19 @@ its heading with `## v<version>`.
 
 ## Unreleased
 
+## v1.7.0
+
 - MeshCore base updated to v1.18.0 (WiFi interface, new boards, GPS fast-fix,
   routing fixes). The UI now hooks in through the new `MyMesh::Listener`.
 - E-ink: the sleep face stays on the panel after the screen turns off, since 1.18 would otherwise wipe it on power-down.
+- GPS features on the OLED Wio Tracker L1 (not on e-ink):
+  - Navigate screen: distance, arrow and ETA to a contact, discovered node, waypoint or shared location.
+  - Distance shown in the contact and recent-advert lists.
+  - Waypoints: mark the current position, rename, delete, navigate (up to 16).
+  - Trail: GPS track recording on flash (up to 4096 points), resumes after a reboot.
+  - Arrival alert and "Nearby alert" for contacts within a chosen radius, also with the screen off.
+  - Location sharing as a "📍 lat,lon" message: one-shot from chat, or live for 1-8 h; Navigate on received locations.
+- GPS screen hides the heading below walking pace.
 
 ## v1.6.0
 

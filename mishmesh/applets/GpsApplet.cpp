@@ -1,17 +1,11 @@
 #include <mishmesh/applets/GpsApplet.h>
 #include <mishmesh/core/AppletRegistry.h>
 #include <mishmesh/core/Canvas.h>
+#include <mishmesh/core/Geo.h>
 #include <mishmesh/text/Fonts.h>
 #include <stdio.h>
 
 namespace mishmesh {
-
-// 8-point compass abbreviation for a heading in degrees (0-359).
-static const char* compassPoint(int deg) {
-  static const char* const PTS[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
-  int i = (((deg + 22) / 45) % 8 + 8) % 8;
-  return PTS[i];
-}
 
 GpsApplet::GpsApplet() : Applet("GPS") {}
 
@@ -63,9 +57,14 @@ int GpsApplet::onRender(Canvas& c) {
   y += nh + 2;
 
   // Heading + altitude rows, label left / value right.
-  int heading = _app->gpsHeadingDeg();
+  // Course over ground is meaningless when standing still, so don't show it.
   char hdg[20];
-  snprintf(hdg, sizeof(hdg), "%03d %s", heading, compassPoint(heading));
+  if (kmh >= GEO_MIN_HEADING_KMH) {
+    int heading = _app->gpsHeadingDeg();
+    snprintf(hdg, sizeof(hdg), "%03d %s", heading, geoCompassPoint(heading));
+  } else {
+    snprintf(hdg, sizeof(hdg), "---");
+  }
   c.drawText(body, 3, y, "Heading", DisplayDriver::LIGHT);
   c.drawText(body, w - 3, y, hdg, DisplayDriver::LIGHT, TextAlign::Right);
   y += rowH;

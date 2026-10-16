@@ -136,6 +136,14 @@ class UITask : public AbstractUITask, public mishmesh::AppServices, public mishm
     DataStore* ds = nullptr;
     uint8_t load(const char* key, uint8_t* dst, uint8_t cap) override;
     bool    save(const char* key, const uint8_t* src, uint8_t len) override;
+#if MISHMESH_GPS_NAV
+    size_t  loadBlob(const char* key, uint8_t* dst, size_t cap) override;
+    bool    saveBlob(const char* key, const uint8_t* src, size_t len) override;
+    bool    appendBlob(const char* key, const uint8_t* src, size_t len) override;
+    size_t  readBlobAt(const char* key, size_t offset, uint8_t* dst, size_t cap) override;
+    size_t  blobSize(const char* key) override;
+    bool    removeBlob(const char* key) override;
+#endif
   } _theStorage;
 
   // Auto-retry of undelivered direct messages. The engine decides what/when;
@@ -182,6 +190,11 @@ class UITask : public AbstractUITask, public mishmesh::AppServices, public mishm
   UIEventType _notifyEvent = UIEventType::none;
   void dispatchNotification(UIEventType t);
   void tickUnreadReminder();
+#if MISHMESH_GPS_NAV
+  void tickGpsAlerts();   // arrival + nearby-contact alerts (sound, wake, toast)
+  void tickLiveShare();   // periodic location messages
+  void tickTrail();       // GPS trail recording (+ "Trail full" toast)
+#endif
   bool wakeAllowedFor(const mishmesh::ConvoKey& c) const;
   void applyTimeSyncGate(bool on);
   // per-minute memo for the DST-aware tz resolver (see tzOffsetMinutes)
@@ -526,6 +539,13 @@ public:
     LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
     if (!lp || !gpsEnabled()) return 0.0f;
     return (float)lp->getLongitude() * 0.000001f;
+  }
+  bool gpsPosition1e6(int32_t& lat, int32_t& lon) const override {
+    LocationProvider* lp = _sensors ? _sensors->getLocationProvider() : nullptr;
+    if (!lp || !gpsHasFix()) return false;
+    lat = (int32_t)lp->getLatitude();
+    lon = (int32_t)lp->getLongitude();
+    return true;
   }
 
   // mishmesh::ContactsService

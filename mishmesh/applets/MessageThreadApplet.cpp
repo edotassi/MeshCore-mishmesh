@@ -1,4 +1,9 @@
 // mishmesh/applets/MessageThreadApplet.cpp
+#include <mishmesh/core/Applet.h>
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/LocationText.h>
+#include <mishmesh/applets/gps/NavigateApplet.h>
+#endif
 #include "MessageThreadApplet.h"
 #include "MessagePathApplet.h"
 #include "ChatNotifyApplet.h"
@@ -506,6 +511,20 @@ bool MessageThreadApplet::onInput(InputEvent ev) {
           if (_svc) _svc->deleteMessage(_key, _focus);
           _menuOpen = false;
           break;
+#if MISHMESH_GPS_NAV
+        case MsgMenuModel::Navigate: {
+          _menuOpen = false;
+          MessageView m; int32_t lat, lon;
+          if (_svc && _svc->getMessage(_key, _focus, m) && parseLocationText(m.text, lat, lon)) {
+            // Sender: the group sender for channels/rooms, else the conversation (contact) name.
+            char who[32];
+            snprintf(who, sizeof(who), "%s", (m.senderName && m.senderName[0]) ? m.senderName : resolveTitle());
+            navigateApplet().setTarget(who, lat, lon);
+            if (_host) _host->push(&navigateApplet());
+          }
+          break;
+        }
+#endif
         case MsgMenuModel::Path:
           _menuOpen = false;
           messagePathApplet().setTarget(_key, _focus);
@@ -541,6 +560,13 @@ bool MessageThreadApplet::onInput(InputEvent ev) {
   if (_qrOpen) {
     if (_menu.onInput(ev)) return true;
     if (ev == InputEvent::Select) {
+#if MISHMESH_GPS_NAV
+      if (_menu.selected() == quickReplyStore().count()) {   // the trailing "Send my location" row
+        _qrOpen = false;
+        sendMyLocation();
+        return true;
+      }
+#endif
       const char* txt = quickReplyStore().text(_menu.selected());
       if (txt && txt[0]) onComposeDone(this, txt);   // identical to a typed send
       _qrOpen = false;
@@ -661,6 +687,13 @@ bool MessageThreadApplet::onConversationInput(InputEvent ev) {
     _msgMenu.hasPath = hasPath;
     _msgMenu.repeats = repeats;
     _msgMenu.canResend = canResend;
+#if MISHMESH_GPS_NAV
+    {
+      MessageView lm; int32_t la, lo;
+      _msgMenu.hasLoc = _svc && _svc->getMessage(_key, _focus, lm) && lm.text && !lm.outbound &&
+                        parseLocationText(lm.text, la, lo);
+    }
+#endif
     _menu.setModel(&_msgMenu); _menu.setRowHeight(14); _menu.resetSelection();
     _menuOpen = true;
     return true;
@@ -676,6 +709,18 @@ void MessageThreadApplet::openQuickReplies() {
   _menu.resetSelection();
   _qrOpen = true;
 }
+
+#if MISHMESH_GPS_NAV
+void MessageThreadApplet::sendMyLocation() {
+  if (!_host || !_svc) return;
+  int32_t lat, lon;
+  if (!_app || !_app->gpsSupported() || !_app->gpsEnabled()) { _host->postToast("GPS is off"); return; }
+  if (!_app->gpsHasFix() || !_app->gpsPosition1e6(lat, lon)) { _host->postToast("No GPS fix"); return; }
+  char text[64];
+  formatLocationText(text, sizeof(text), lat, lon, false);
+  _host->postToast(_svc->sendText(_key, text) ? "Location sent" : "Send failed");
+}
+#endif
 
 void MessageThreadApplet::startCompose(const char* seed) {
   if (seed && seed[0]) { strncpy(_composeBuf, seed, KeypadApplet::KP_MAX);

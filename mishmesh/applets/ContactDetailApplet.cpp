@@ -4,6 +4,9 @@
 #include <mishmesh/applets/MessageThreadApplet.h>
 #include <mishmesh/applets/ServerLoginApplet.h>
 #include <mishmesh/applets/SetPathApplet.h>
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/NavigateApplet.h>
+#endif
 #include <mishmesh/core/AppletHost.h>
 #include <mishmesh/core/ContactsService.h>
 #include <mishmesh/core/ContactFormat.h>
@@ -22,6 +25,9 @@ static const uint32_t TELEM_TIMEOUT_MS = 12000;
 static const char* ACTION_LABELS[ContactDetailApplet::ACTION_KINDS] = {
   "View details", "", "Telemetry", "Ping (0 hop)", "Reset path", "Clear conversation", "Delete contact",
   "Send message", "Rename", "Permissions", "Set path", "Manage",
+#if MISHMESH_GPS_NAV
+  "Navigate",
+#endif
 };
 
 static const char* typeName(uint8_t t) { return contactTypeName(t); }
@@ -88,6 +94,9 @@ void ContactDetailApplet::buildActions() {
   if (_type == (uint8_t)ContactKind::Chat || _type == (uint8_t)ContactKind::Room)
     _actions[_actionCount++] = Message;
   _actions[_actionCount++] = View;
+#if MISHMESH_GPS_NAV
+  if (_hasLoc) _actions[_actionCount++] = Navigate;
+#endif
   _actions[_actionCount++] = Rename;     // local display label, all contact types
   _actions[_actionCount++] = Favourite;
   _actions[_actionCount++] = Telemetry;
@@ -366,6 +375,12 @@ bool ContactDetailApplet::onInput(InputEvent ev) {
         if (_host) _host->push(&keypadApplet());
         return true;
       case View: _viewing = true; return true;
+#if MISHMESH_GPS_NAV
+      case Navigate:
+        navigateApplet().setTarget(_name, _gpsLat, _gpsLon);
+        if (_host) _host->push(&navigateApplet());
+        return true;
+#endif
       case Favourite:
         if (_svc->setFavourite(_pubkey, !_favourite)) {
           _favourite = !_favourite;

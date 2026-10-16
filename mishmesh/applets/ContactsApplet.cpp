@@ -52,6 +52,23 @@ const char* ContactListModel::label(int i) const {
   return contactLabel(v, buf, sizeof(buf));
 }
 
+#if MISHMESH_GPS_NAV
+const char* ContactListModel::value(int i) const {
+  static ContactView v;
+  static char buf[12];
+  sync();
+  if (!_self || !_cache || !_cache->at(i, v) || !_self->distanceText(v, buf, sizeof(buf))) return nullptr;
+  return buf;
+}
+const char* FavouritesListModel::value(int i) const {
+  static ContactView v;
+  static char buf[12];
+  sync();
+  if (!_self || !_cache || !_cache->at(i, v) || !_self->distanceText(v, buf, sizeof(buf))) return nullptr;
+  return buf;
+}
+#endif
+
 const char* FavouritesListModel::label(int i) const {
   static ContactView v;
   static char buf[44];
@@ -156,6 +173,10 @@ void ContactsApplet::onStart(AppletContext& ctx) {
   _models[2].bind(&_cache, ContactKind::Room, kindIcon(ContactKind::Room));
   _models[3].bind(&_cache, ContactKind::Sensor, kindIcon(ContactKind::Sensor));
   _favs.bind(&_cache);
+#if MISHMESH_GPS_NAV
+  for (int i = 0; i < 4; i++) _models[i].bindSelf(&_self);
+  _favs.bindSelf(&_self);
+#endif
   _favs.setUsersOnly(_pickMode);
   _discover.bind(_svc);
   contactsSettings().begin(ctx);
@@ -181,6 +202,9 @@ int ContactsApplet::onRender(Canvas& c) {
   int bodyY = barH + 1;
   int bodyH = h - bodyY;
   if (settingsTab()) return contactsSettings().renderBody(c, 0, bodyY, w, bodyH);
+#if MISHMESH_GPS_NAV
+  _self.refresh(_svc);
+#endif
   _list.draw(c, 0, bodyY, w, bodyH);
   return _list.needsAnimation() ? ListMenu::TICK_MS : 500;
 }

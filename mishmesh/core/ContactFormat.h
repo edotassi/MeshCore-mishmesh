@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include <mishmesh/core/ContactsService.h>   // ContactKind / ContactView
 #include <mishmesh/text/Fonts.h>             // Icon
+#include <mishmesh/core/Applet.h>               // MISHMESH_GPS_NAV
+#if MISHMESH_GPS_NAV
+#include <mishmesh/core/Geo.h>
+#endif
 
 namespace mishmesh {
 
@@ -45,5 +49,21 @@ inline void contactFormatAge(uint32_t secs, char* buf, int n) {
   else if (secs < 86400) snprintf(buf, n, "%uh", secs / 3600);
   else                   snprintf(buf, n, "%ud", secs / 86400);
 }
+
+#if MISHMESH_GPS_NAV
+// Our own advert location, fetched once per render pass (refresh) and shared by all
+// rows of a list so value() doesn't hit the service per row.
+struct SelfPos {
+  bool valid = false;
+  int32_t lat = 0, lon = 0;
+  void refresh(const ContactsService* svc) { valid = svc && svc->selfLocation(lat, lon); }
+  // "850 m" / "1.2 km" to the contact, or false when either end has no location.
+  bool distanceText(const ContactView& v, char* buf, int n) const {
+    if (!valid || !v.hasLocation) return false;
+    geoFormatDistance(buf, (size_t)n, geoDistanceKm(lat, lon, v.gpsLat, v.gpsLon));
+    return true;
+  }
+};
+#endif
 
 }  // namespace mishmesh

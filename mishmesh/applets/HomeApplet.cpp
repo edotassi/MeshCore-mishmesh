@@ -1,3 +1,7 @@
+#include <mishmesh/core/Applet.h>
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/LiveShare.h>
+#endif
 #include <mishmesh/applets/HomeApplet.h>
 #include <mishmesh/core/AppletHost.h>
 #include <mishmesh/core/AppletRegistry.h>
@@ -13,6 +17,16 @@
 #include <string.h>
 
 namespace mishmesh {
+
+#if MISHMESH_GPS_NAV
+// Map pin, 12x12 row-major MSB-first (Adafruit drawBitmap order), sized like the
+// icon-font glyphs it sits beside. A bitmap rather than a new Icons16 glyph so the
+// shared icon font - and with it the e-ink build - stays untouched.
+static const uint8_t LIVE_SHARE_PIN[] = {
+  0x0F, 0x00, 0x1F, 0x80, 0x39, 0xC0, 0x30, 0xC0, 0x30, 0xC0, 0x39, 0xC0,
+  0x1F, 0x80, 0x1F, 0x80, 0x0F, 0x00, 0x06, 0x00, 0x06, 0x00, 0x00, 0x00,
+};
+#endif
 
 static const int BAR_H = 12;
 static const int MARGIN = 4;
@@ -78,6 +92,13 @@ int HomeApplet::onRender(Canvas& c) {
     }
     xr -= 3;
   }
+#if MISHMESH_GPS_NAV
+  if (liveShare().active()) {   // sharing our position into a chat
+    xr -= 12;
+    c.drawXbm(xr, 0, LIVE_SHARE_PIN, 12, 12, DisplayDriver::LIGHT);
+    xr -= 3;
+  }
+#endif
   if (_app && _app->bleEnabled()) {
     xr -= 12;
     if (_app->bleConnected()) {   // inverted chip = client attached

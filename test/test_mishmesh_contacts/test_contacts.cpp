@@ -867,3 +867,102 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+// ---- GPS navigation: distance in rows + Navigate action ---------------------
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/NavigateApplet.h>
+
+namespace {
+// Milan Duomo -> Rome Colosseum is ~478 km, so the row reads "478 km".
+const int32_t kSelfLat = 45464211, kSelfLon = 9191383;
+const int32_t kFarLat = 41890210, kFarLon = 12492231;
+
+FakeContactsService::Row locatedRow(const char* name, const char* key, bool hasLoc) {
+  FakeContactsService::Row r; r.name = name; memcpy(r.pubkey, key, 6);
+  r.hasLocation = hasLoc; r.gpsLat = kFarLat; r.gpsLon = kFarLon;
+  return r;
+}
+
+const char* rowValueAfterRender(FakeContactsService& svc) {
+  FakeDisplayDriver d;
+  mishmesh::AppletContext ctx; ctx.contacts = &svc;
+  mishmesh::AppletHost host(&d, ctx);
+  host.setRoot(&mishmesh::contactsApplet());
+  host.loop(0);   // render pass refreshes the own-location snapshot
+  return mishmesh::contactsApplet().kindModelForTest(0).value(0);
+}
+}  // namespace
+
+TEST(ContactsApplet, RowShowsDistanceWhenBothLocationsKnown) {
+  FakeContactsService svc;
+  svc.chats.push_back(locatedRow("Alice", "ALICE!", true));
+  svc.hasSelfLoc = true; svc.selfLat = kSelfLat; svc.selfLon = kSelfLon;
+  const char* v = rowValueAfterRender(svc);
+  ASSERT_NE(nullptr, v);
+  EXPECT_STREQ("478 km", v);
+}
+
+TEST(ContactsApplet, RowHasNoDistanceWithoutContactLocation) {
+  FakeContactsService svc;
+  svc.chats.push_back(locatedRow("Alice", "ALICE!", false));
+  svc.hasSelfLoc = true; svc.selfLat = kSelfLat; svc.selfLon = kSelfLon;
+  EXPECT_EQ(nullptr, rowValueAfterRender(svc));
+}
+
+TEST(ContactsApplet, RowHasNoDistanceWithoutSelfLocation) {
+  FakeContactsService svc;
+  svc.chats.push_back(locatedRow("Alice", "ALICE!", true));
+  svc.hasSelfLoc = false;
+  EXPECT_EQ(nullptr, rowValueAfterRender(svc));
+}
+
+namespace {
+// Opens Alice's detail page and returns its action labels.
+std::vector<std::string> detailActions(FakeContactsService& svc) {
+  FakeDisplayDriver d;
+  mishmesh::AppletContext ctx; ctx.contacts = &svc;
+  mishmesh::AppletHost host(&d, ctx);
+  host.setRoot(&mishmesh::contactsApplet());
+  host.dispatch(mishmesh::InputEvent::Select);
+  std::vector<std::string> out;
+  auto& det = mishmesh::contactDetailApplet();
+  for (int i = 0; i < det.count(); i++) out.push_back(det.label(i));
+  return out;
+}
+}  // namespace
+
+TEST(ContactDetail, NavigateActionOnlyWithLocation) {
+  {
+    FakeContactsService svc;
+    svc.chats.push_back(locatedRow("Alice", "ALICE!", true));
+    auto a = detailActions(svc);
+    ASSERT_GE(a.size(), 3u);
+    // Right after "View details" (Chat contacts lead with "Send message").
+    int view = -1;
+    for (size_t i = 0; i < a.size(); i++) if (a[i] == "View details") view = (int)i;
+    ASSERT_GE(view, 0);
+    EXPECT_EQ("Navigate", a[view + 1]);
+  }
+  {
+    FakeContactsService svc;
+    svc.chats.push_back(locatedRow("Alice", "ALICE!", false));
+    for (auto& l : detailActions(svc)) EXPECT_NE("Navigate", l);
+  }
+}
+
+TEST(ContactDetail, NavigatePushesNavigateApplet) {
+  FakeContactsService svc;
+  svc.chats.push_back(locatedRow("Alice", "ALICE!", true));
+  FakeDisplayDriver d;
+  mishmesh::AppletContext ctx; ctx.contacts = &svc;
+  mishmesh::AppletHost host(&d, ctx);
+  host.setRoot(&mishmesh::contactsApplet());
+  host.dispatch(mishmesh::InputEvent::Select);       // open detail
+  EXPECT_EQ(2, host.depth());
+  host.dispatch(mishmesh::InputEvent::NavDown);      // Send message -> View details
+  host.dispatch(mishmesh::InputEvent::NavDown);      // -> Navigate
+  host.dispatch(mishmesh::InputEvent::Select);
+  EXPECT_EQ(3, host.depth());
+  EXPECT_EQ((mishmesh::Applet*)&mishmesh::navigateApplet(), host.foreground());
+}
+#endif

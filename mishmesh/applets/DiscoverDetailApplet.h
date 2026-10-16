@@ -14,7 +14,11 @@ namespace mishmesh {
 // ContactDetailApplet's layout but for nodes that are not contacts yet.
 class DiscoverDetailApplet : public Applet, public ListModel {
 public:
-  enum Action { Add, View, ACTION_COUNT };
+  enum Action { Add, View,
+#if MISHMESH_GPS_NAV
+                Navigate,
+#endif
+                ACTION_COUNT };
 private:
   AppletHost*      _host;
   ContactsService* _svc;
@@ -43,7 +47,11 @@ public:
   void onStart(AppletContext& ctx) override;
   int  onRender(Canvas& c) override;
   bool onInput(InputEvent ev) override;
+#if MISHMESH_GPS_NAV
+  int count() const override { return _hasLoc ? ACTION_COUNT : ACTION_COUNT - 1; }
+#else
   int count() const override { return ACTION_COUNT; }
+#endif
   const char* label(int i) const override;
 };
 

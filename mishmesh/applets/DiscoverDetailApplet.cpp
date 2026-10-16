@@ -4,6 +4,9 @@
 #include <mishmesh/core/AppletHost.h>
 #include <mishmesh/core/ContactFormat.h>
 #include <mishmesh/core/Geo.h>
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/NavigateApplet.h>
+#endif
 #include <stdio.h>
 #include <string.h>
 
@@ -11,6 +14,9 @@ namespace mishmesh {
 
 static const char* ACTION_LABELS[DiscoverDetailApplet::ACTION_COUNT] = {
   "Add to contacts", "View details",
+#if MISHMESH_GPS_NAV
+  "Navigate",
+#endif
 };
 
 DiscoverDetailApplet::DiscoverDetailApplet()
@@ -100,6 +106,13 @@ bool DiscoverDetailApplet::onInput(InputEvent ev) {
   if (_list.onInput(ev)) return true;
   if (ev == InputEvent::Select && _svc) {
     if (_list.selected() == View) { _viewing = true; return true; }
+#if MISHMESH_GPS_NAV
+    if (_list.selected() == Navigate) {
+      navigateApplet().setTarget(_name, _gpsLat, _gpsLon);
+      if (_host) _host->push(&navigateApplet());
+      return true;
+    }
+#endif
     if (_svc->addDiscovered(_pubkey)) {
       // Hand off to the new contact's detail page in place of this one, so Back still
       // returns to the Discover list rather than to this (now-stale) discovery screen.

@@ -5,6 +5,7 @@
 #include <mishmesh/widgets/ListMenu.h>
 #include <mishmesh/widgets/TabBar.h>
 #include <mishmesh/applets/settings/ContactsSettingsPanel.h>
+#include <mishmesh/core/ContactFormat.h>   // SelfPos
 
 namespace mishmesh {
 
@@ -56,10 +57,17 @@ class ContactListModel : public ListModel {
   ContactFilterCache* _cache;
   ContactKind         _kind;
   uint16_t            _icon;
+#if MISHMESH_GPS_NAV
+  const SelfPos*      _self = nullptr;
+#endif
   void sync() const { if (_cache) _cache->configure(ContactFilterCache::Kind, _kind); }
 public:
   ContactListModel() : _cache(nullptr), _kind(ContactKind::Chat), _icon(0) {}
   void bind(ContactFilterCache* cache, ContactKind k, uint16_t icon) { _cache = cache; _kind = k; _icon = icon; }
+#if MISHMESH_GPS_NAV
+  void bindSelf(const SelfPos* self) { _self = self; }
+  const char* value(int i) const override;   // distance to the contact, when known
+#endif
   ContactKind kind() const { return _kind; }
   int count() const override { sync(); return _cache ? _cache->count() : 0; }
   const char* label(int i) const override;
@@ -70,6 +78,9 @@ public:
 class FavouritesListModel : public ListModel {
   ContactFilterCache* _cache;
   bool                _usersOnly;
+#if MISHMESH_GPS_NAV
+  const SelfPos*      _self = nullptr;
+#endif
   void sync() const {
     if (_cache) _cache->configure(_usersOnly ? ContactFilterCache::FavouriteUsers
                                              : ContactFilterCache::Favourites, ContactKind::Chat);
@@ -78,6 +89,10 @@ public:
   FavouritesListModel() : _cache(nullptr), _usersOnly(false) {}
   void bind(ContactFilterCache* cache) { _cache = cache; }
   void setUsersOnly(bool u) { _usersOnly = u; }
+#if MISHMESH_GPS_NAV
+  void bindSelf(const SelfPos* self) { _self = self; }
+  const char* value(int i) const override;   // distance to the contact, when known
+#endif
   int rawIndex(int filtered) const { sync(); return _cache ? _cache->rawIndex(filtered) : -1; }
   int count() const override { sync(); return _cache ? _cache->count() : 0; }
   const char* label(int i) const override;
@@ -113,6 +128,9 @@ class ContactsApplet : public Applet {
   ContactListModel      _models[4];     // Chat/Repeater/Room/Sensor
   FavouritesListModel   _favs;
   DiscoverListModel     _discover;
+#if MISHMESH_GPS_NAV
+  SelfPos               _self;          // refreshed once per render pass
+#endif
   TabSlot               _slots[8];      // parallel to the tabs
   int                   _slotCount;
   bool                  _pickMode;        // picker: only Favourites(users) + Contacts(users), select -> thread
@@ -135,6 +153,9 @@ public:
   void configurePick(ContactPickFn fn, void* ctx) { _pickFn = fn; _pickCtx = ctx; _pickRequested = true; }
   int  tabCountForTest() const { return _slotCount; }
   bool pickModeForTest() const { return _pickMode; }
+#if MISHMESH_GPS_NAV
+  const ListModel& kindModelForTest(int kind0) const { return _models[kind0]; }   // 0=Chat..3=Sensor
+#endif
 };
 
 ContactsApplet& contactsApplet();   // shared static instance

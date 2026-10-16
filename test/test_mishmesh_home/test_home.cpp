@@ -5,6 +5,8 @@
 #include <mishmesh/core/UiPrefs.h>
 #include <mishmesh/applets/HomeApplet.h>
 #include <mishmesh/core/ClockService.h>
+#include <mishmesh/applets/gps/LiveShare.h>
+#include <mishmesh/core/MsgTypes.h>
 #include "FakeDisplayDriver.h"
 
 using namespace mishmesh;
@@ -195,6 +197,28 @@ TEST(HomeApplet, PomodoroSessionDrawsExtraIcon) {
   }
   clockService().resetForTest();
   EXPECT_GT(ops[1], ops[0]);   // pomodoro session adds the tomato indicator
+}
+
+TEST(HomeApplet, LiveShareDrawsPinNotWifi) {
+  primeRegistry();
+  FakeApp app;
+  int xbms[2];
+  for (int pass = 0; pass < 2; pass++) {
+    liveShare().resetForTest();
+    if (pass == 1) {
+      liveShare().setTarget(channelKey(0), "Public");
+      ASSERT_TRUE(liveShare().start(0));
+    }
+    FakeDisplayDriver d;
+    AppletContext ctx; ctx.app = &app;
+    AppletHost host(&d, ctx);
+    HomeApplet home;
+    host.setRoot(&home);
+    host.loop(0);
+    xbms[pass] = d.xbms;
+  }
+  liveShare().resetForTest();
+  EXPECT_EQ(xbms[1], xbms[0] + 1);   // the pin is a bitmap, drawn only while sharing
 }
 
 TEST(HomeApplet, HintLabelTruncatesToFourChars) {

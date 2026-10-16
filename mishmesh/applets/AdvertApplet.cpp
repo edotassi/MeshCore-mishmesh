@@ -35,10 +35,23 @@ uint16_t AdvertApplet::RecentModel::icon(int index) const {
 }
 const char* AdvertApplet::RecentModel::value(int index) const {
   static ContactView v;
-  static char buf[12];
+  static char buf[MISHMESH_GPS_NAV ? 24 : 12];   // room for "478 km | 12m" with the flag
   if (!_svc || !_app || !_svc->getRecentAdvert(index, v)) return nullptr;
   uint32_t now = _app->epochSeconds();
-  if (now == 0 || v.heardAt == 0 || now < v.heardAt) return nullptr;
+  bool haveAge = now != 0 && v.heardAt != 0 && now >= v.heardAt;
+#if MISHMESH_GPS_NAV
+  // Distance leads; the age is appended (" | 5m") when the clock is known.
+  char dist[12];
+  if (_self.distanceText(v, dist, sizeof(dist))) {
+    int p = snprintf(buf, sizeof(buf), "%s", dist);
+    if (haveAge) {
+      snprintf(buf + p, sizeof(buf) - p, " | ");
+      contactFormatAge(now - v.heardAt, buf + p + 3, sizeof(buf) - p - 3);
+    }
+    return buf;
+  }
+#endif
+  if (!haveAge) return nullptr;
   contactFormatAge(now - v.heardAt, buf, sizeof(buf));
   return buf;
 }
@@ -71,6 +84,9 @@ int AdvertApplet::onRender(Canvas& c) {
   _tabs.draw(c, 0, 0, w, barH);
   int bodyY = barH + 1;
   if (settingsTab()) return advertSettings().renderBody(c, 0, bodyY, w, h - bodyY);
+#if MISHMESH_GPS_NAV
+  _recent.refreshSelf();
+#endif
   _list.draw(c, 0, bodyY, w, h - bodyY);
   return _list.needsAnimation() ? ListMenu::TICK_MS : 1000;
 }

@@ -5,6 +5,11 @@
 #include <mishmesh/core/AppletStorage.h>
 #include <mishmesh/core/InputEvent.h>
 
+// GPS navigation features (NavigateApplet, list distances). OLED builds only.
+#ifndef MISHMESH_GPS_NAV
+#define MISHMESH_GPS_NAV 0
+#endif
+
 namespace mishmesh {
 
 class Canvas;
@@ -152,6 +157,9 @@ struct AppServices {
   // Coordinates in degrees (+north/+east), also valid only while gpsHasFix().
   virtual float gpsLatitude()  const { return 0.0f; }
   virtual float gpsLongitude() const { return 0.0f; }
+  // Same fix as degrees * 1e6 (MeshCore's int32 form, full precision - a float
+  // degree loses ~0.5 m). Returns false, leaving the outputs alone, without a fix.
+  virtual bool gpsPosition1e6(int32_t& lat, int32_t& lon) const { (void)lat; (void)lon; return false; }
   // Screen auto-off timeout, as an index into the mishmesh SCREEN_SLEEP options
   // (mishmesh/core/ScreenSleep.h). Default index 1 = 30s. The adapter persists
   // it to NodePrefs and applies it live to the AppletHost.

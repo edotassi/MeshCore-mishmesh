@@ -104,6 +104,14 @@ TEST(GpsApplet, BackBubbles) {
   EXPECT_FALSE(a.onInput(InputEvent::Back));
 }
 
+// Standing still the GPS course is noise; below GEO_MIN_HEADING_KMH it is hidden.
+TEST(GpsApplet, StationaryHidesHeading) {
+  FakeApp app;
+  app.supported = true; app.enabled = true; app.fix = true;
+  app.speed = 0.5f; app.heading = 217;
+  EXPECT_EQ(1000, render(gpsApplet(), &app));
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

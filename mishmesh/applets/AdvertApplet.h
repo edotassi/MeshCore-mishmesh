@@ -4,6 +4,7 @@
 #include <mishmesh/text/Fonts.h>
 #include <mishmesh/widgets/ListMenu.h>
 #include <mishmesh/widgets/TabBar.h>
+#include <mishmesh/core/ContactFormat.h>   // SelfPos
 
 namespace mishmesh {
 
@@ -25,12 +26,18 @@ public:
   class RecentModel : public ListModel {
     ContactsService* _svc = nullptr;
     AppServices*     _app = nullptr;
+#if MISHMESH_GPS_NAV
+    SelfPos          _self;   // refreshed once per render pass
+#endif
   public:
     void bind(ContactsService* svc, AppServices* app) { _svc = svc; _app = app; }
+#if MISHMESH_GPS_NAV
+    void refreshSelf() { _self.refresh(_svc); }
+#endif
     int count() const override;
     const char* label(int index) const override;
     uint16_t icon(int index) const override;
-    const char* value(int index) const override;   // right-aligned "heard N ago"
+    const char* value(int index) const override;   // right-aligned "[distance | ]heard N ago"
   };
 
   AdvertApplet() : Applet("Advert") {}

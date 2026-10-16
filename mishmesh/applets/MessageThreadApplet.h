@@ -103,30 +103,61 @@ private:
     bool hasPath = false;
     bool repeats = false;     // outbound channel -> "Heard Repeats" instead of "View Path"
     bool canResend = false;   // failed DM / 0-heard channel -> offer "Resend"
-    enum Action : uint8_t { Reply, Resend, Delete, Path };
-    // Visible order: Reply, [Resend], Delete, [Path].
+    enum Action : uint8_t { Reply, Resend,
+#if MISHMESH_GPS_NAV
+                            Navigate,
+#endif
+                            Delete, Path };
+    // Visible order: Reply, [Resend], [Navigate], Delete, [Path]. Navigate only
+    // exists for location messages (MISHMESH_GPS_NAV builds).
+#if MISHMESH_GPS_NAV
+    bool hasLoc = false;
+#endif
     Action actionAt(int i) const {
-      Action seq[4]; int n = 0;
+      Action seq[5]; int n = 0;
       seq[n++] = Reply;
       if (canResend) seq[n++] = Resend;
+#if MISHMESH_GPS_NAV
+      if (hasLoc) seq[n++] = Navigate;
+#endif
       seq[n++] = Delete;
       if (hasPath) seq[n++] = Path;
       return (i >= 0 && i < n) ? seq[i] : Delete;
     }
-    int count() const override { return 1 + (canResend ? 1 : 0) + 1 + (hasPath ? 1 : 0); }
+    int count() const override {
+      int n = 1 + (canResend ? 1 : 0) + 1 + (hasPath ? 1 : 0);
+#if MISHMESH_GPS_NAV
+      if (hasLoc) n++;
+#endif
+      return n;
+    }
     const char* label(int i) const override {
       switch (actionAt(i)) {
         case Reply:  return "Reply";
         case Resend: return "Resend";
+#if MISHMESH_GPS_NAV
+        case Navigate: return "Navigate";
+#endif
         case Delete: return "Delete";
         default:     return repeats ? "Heard Repeats" : "View Path";
       }
     }
   } _msgMenu;
   struct QuickReplyModel : ListModel {
+#if MISHMESH_GPS_NAV
+    // One extra trailing row: send our live position as a pin message.
+    int count() const override { return quickReplyStore().count() + 1; }
+    const char* label(int i) const override {
+      return i == quickReplyStore().count() ? "Send my location" : quickReplyStore().text(i);
+    }
+#else
     int count() const override { return quickReplyStore().count(); }
     const char* label(int i) const override { return quickReplyStore().text(i); }
+#endif
   } _qrModel;
+#if MISHMESH_GPS_NAV
+  void sendMyLocation();
+#endif
   void openQuickReplies();
   int       _barRow = -1;     // -1 = on a message; 0 = Write; 1 = Quick
   bool      _composeOnOpen = false;   // one-shot: focus the Write button on next onStart

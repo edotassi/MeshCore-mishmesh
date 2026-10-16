@@ -207,3 +207,54 @@ int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
+
+#if MISHMESH_GPS_NAV
+namespace {
+// Milan -> Rome ~478 km.
+FakeContactsService::Row locRecent(bool hasLoc, uint32_t heardAt) {
+  FakeContactsService::Row r = mkRow("Far", "FAR001", (uint8_t)ContactKind::Chat, heardAt);
+  r.hasLocation = hasLoc; r.gpsLat = 41890210; r.gpsLon = 12492231;
+  return r;
+}
+void renderRecent(AdvertApplet& applet, AppServices& app, FakeContactsService& svc) {
+  FakeDisplayDriver d;
+  AppletContext ctx; ctx.app = &app; ctx.contacts = &svc;
+  AppletHost host(&d, ctx);
+  host.setRoot(&applet);
+  host.dispatch(InputEvent::NavRight);   // Recent tab
+  host.loop(0);                          // render pass snapshots our location
+}
+}  // namespace
+
+TEST(AdvertApplet, RecentRowShowsDistanceAndAge) {
+  FakeAdvertApp app; app.now = 1000; FakeContactsService svc;
+  svc.recent.push_back(locRecent(true, 880));
+  svc.hasSelfLoc = true; svc.selfLat = 45464211; svc.selfLon = 9191383;
+  AdvertApplet applet; renderRecent(applet, app, svc);
+  EXPECT_STREQ("478 km | 2m", applet.recentModel().value(0));
+}
+
+TEST(AdvertApplet, RecentRowDistanceWithoutClock) {
+  FakeAdvertApp app; app.now = 0; FakeContactsService svc;
+  svc.recent.push_back(locRecent(true, 880));
+  svc.hasSelfLoc = true; svc.selfLat = 45464211; svc.selfLon = 9191383;
+  AdvertApplet applet; renderRecent(applet, app, svc);
+  EXPECT_STREQ("478 km", applet.recentModel().value(0));
+}
+
+TEST(AdvertApplet, RecentRowNoDistanceWithoutNodeLocation) {
+  FakeAdvertApp app; app.now = 1000; FakeContactsService svc;
+  svc.recent.push_back(locRecent(false, 880));
+  svc.hasSelfLoc = true; svc.selfLat = 45464211; svc.selfLon = 9191383;
+  AdvertApplet applet; renderRecent(applet, app, svc);
+  EXPECT_STREQ("2m", applet.recentModel().value(0));
+}
+
+TEST(AdvertApplet, RecentRowNoDistanceWithoutSelfLocation) {
+  FakeAdvertApp app; app.now = 1000; FakeContactsService svc;
+  svc.recent.push_back(locRecent(true, 880));
+  svc.hasSelfLoc = false;
+  AdvertApplet applet; renderRecent(applet, app, svc);
+  EXPECT_STREQ("2m", applet.recentModel().value(0));
+}
+#endif

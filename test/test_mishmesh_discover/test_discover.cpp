@@ -141,6 +141,45 @@ TEST(DiscoverApplet, RendersWithoutCrashing) {
   EXPECT_FALSE(d.fills.empty());
 }
 
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/NavigateApplet.h>
+
+TEST(DiscoverDetail, NavigateActionOnlyWithLocation) {
+  FakeContactsService svc;
+  AppletContext ctx; ctx.contacts = &svc;
+  ContactView v{};
+  uint8_t key[PUBKEY_LEN] = {1, 2, 3, 4, 5, 6};
+  v.name = "Far"; v.type = (uint8_t)ContactKind::Chat; v.pubKey = key;
+  v.hasLocation = false;
+  DiscoverDetailApplet& a = discoverDetailApplet();
+  a.setTarget(v); a.onStart(ctx);
+  EXPECT_EQ(2, a.count());
+
+  v.hasLocation = true; v.gpsLat = 45464211; v.gpsLon = 9191383;
+  a.setTarget(v); a.onStart(ctx);
+  ASSERT_EQ(3, a.count());
+  EXPECT_STREQ("Navigate", a.label(2));
+}
+
+TEST(DiscoverDetail, NavigatePushesNavigateApplet) {
+  FakeContactsService svc;
+  FakeDisplayDriver d;
+  AppletContext ctx; ctx.contacts = &svc;
+  AppletHost host(&d, ctx);
+  ContactView v{};
+  uint8_t key[PUBKEY_LEN] = {1, 2, 3, 4, 5, 6};
+  v.name = "Far"; v.type = (uint8_t)ContactKind::Chat; v.pubKey = key;
+  v.hasLocation = true; v.gpsLat = 45464211; v.gpsLon = 9191383;
+  discoverDetailApplet().setTarget(v);
+  host.setRoot(&discoverDetailApplet());
+  host.dispatch(InputEvent::NavDown);
+  host.dispatch(InputEvent::NavDown);   // Add -> View -> Navigate
+  host.dispatch(InputEvent::Select);
+  EXPECT_EQ(2, host.depth());
+  EXPECT_EQ((Applet*)&navigateApplet(), host.foreground());
+}
+#endif
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

@@ -6,6 +6,11 @@
 #include <mishmesh/applets/onboarding_logo.h>   // MeshCore + mishmesh wordmarks
 #include <mishmesh/applets/ClockAlertApplet.h>
 #include <mishmesh/core/ClockService.h>
+#if MISHMESH_GPS_NAV
+#include <mishmesh/applets/gps/GpsAlerts.h>
+#include <mishmesh/applets/gps/TrailRecorder.h>
+#include <mishmesh/applets/gps/LiveShare.h>
+#endif
 #include <mishmesh/core/QuickReplyStore.h>
 #include <mishmesh/core/UiPrefs.h>
 #include <mishmesh/core/TelemetryDecode.h>
@@ -268,6 +273,10 @@ void UITask::begin(DisplayDriver* display, SensorManager* sensors, NodePrefs* no
     _display->setDisplayRotation(mishmesh::uiPrefs().rotation());
   mishmesh::clockService().begin(&_theStorage);   // alarm / world cities / timer duration
   _batteryHistory.load(&_theStorage, "batt_hist");   // reload the 24h ring across a reboot
+#if MISHMESH_GPS_NAV
+  mishmesh::gpsAlerts().begin(&_theStorage);          // "Nearby alert" radius
+  mishmesh::trailRecorder().begin(&_theStorage);      // trail meta; resumes recording if it was on
+#endif
   ctx.sound = &_sound;
   _host = new mishmesh::AppletHost(_display, ctx);
   // A panel flush blocks this loop for hundreds of ms, and the sequencer only
@@ -476,6 +485,35 @@ void UITask::tickUnreadReminder() {
     _sound.play(id);
 }
 
+#if MISHMESH_GPS_NAV
+void UITask::tickGpsAlerts() {
+  // Runs with the screen off too: that is the point of an arrival / proximity alert.
+  mishmesh::GpsAlert a;
+  if (!_host || !mishmesh::gpsAlerts().tick(millis(), *this, *this, a)) return;
+  _sound.play(mishmesh::sound::notifyTypeDefault(false));   // the DM tone; mute gates inside play()
+  if (!_host->isDisplayOn()) _host->wakeDisplay();
+  _host->postToast(a.text);
+  _host->requestRender();
+}
+
+void UITask::tickLiveShare() {
+  using mishmesh::LiveShare;
+  if (!_host) return;
+  if (mishmesh::liveShare().tick(millis(), *this, _msgSvc) == LiveShare::Event::Ended) {
+    _host->postToast("Location sharing ended");
+    _host->requestRender();
+  }
+}
+
+void UITask::tickTrail() {
+  // Records with the screen off too. The only event is "trail full".
+  if (!_host || !mishmesh::trailRecorder().tick(millis(), *this)) return;
+  _sound.play(mishmesh::sound::notifyTypeDefault(false));
+  _host->postToast("Trail full");
+  _host->requestRender();
+}
+#endif
+
 void UITask::loop() {
   // debounced message-store persistence. Each change pushes the quiet
   // window out, but _msgDirtySince caps total deferral so a continuously-active
@@ -557,6 +595,11 @@ void UITask::loop() {
     }
     _sound.tick(millis());
     tickUnreadReminder();
+#if MISHMESH_GPS_NAV
+    tickGpsAlerts();
+    tickTrail();
+    tickLiveShare();
+#endif
     // bank per-minute airtime deltas; cheap, advances buckets only on
     // minute rollover, and runs regardless of the active applet so the graph has
     // history even when it wasn't on screen.
@@ -1432,4 +1475,103 @@ bool UITask::MishmeshStorage::save(const char* key, const uint8_t* src, uint8_t 
   f.close();
   return w == (size_t)toWrite;
 }
+
+#if MISHMESH_GPS_NAV
+// Uncapped variants of load/save for blobs larger than 128 B (waypoints).
+size_t UITask::MishmeshStorage::loadBlob(const char* key, uint8_t* dst, size_t cap) {
+  if (!ds || !key || !dst || cap == 0) return 0;
+  FILESYSTEM* fs = ds->getSecondaryFS() ? ds->getSecondaryFS() : ds->getPrimaryFS();
+  if (!fs) return 0;
+  char path[40];
+  mmPath(path, sizeof(path), key);
+  File f = ds->openRead(fs, path);
+  if (!f) return 0;
+  size_t n = (size_t)f.read(dst, cap);
+  f.close();
+  return n;
+}
+
+bool UITask::MishmeshStorage::saveBlob(const char* key, const uint8_t* src, size_t len) {
+  if (!ds || !key || !src || len == 0) return false;
+  FILESYSTEM* fs = ds->getSecondaryFS() ? ds->getSecondaryFS() : ds->getPrimaryFS();
+  if (!fs) return false;
+  fs->mkdir("/mm");
+  char path[40];
+  mmPath(path, sizeof(path), key);
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  fs->remove(path);
+  File f = fs->open(path, FILE_O_WRITE);
+#elif defined(RP2040_PLATFORM)
+  File f = fs->open(path, "w");
+#else
+  File f = fs->open(path, "w", true);
+#endif
+  if (!f) return false;
+  size_t w = f.write(src, len);
+  f.close();
+  return w == len;
+}
+
+// Append-only blob ops for the trail. On nRF52 FILE_O_WRITE is RDWR|CREAT and
+// positions at the end of an existing file (Adafruit_LittleFS_File.cpp), so it
+// appends without a remove.
+bool UITask::MishmeshStorage::appendBlob(const char* key, const uint8_t* src, size_t len) {
+  if (!ds || !key || !src || len == 0) return false;
+  FILESYSTEM* fs = ds->getSecondaryFS() ? ds->getSecondaryFS() : ds->getPrimaryFS();
+  if (!fs) return false;
+  fs->mkdir("/mm");
+  char path[40];
+  mmPath(path, sizeof(path), key);
+#if defined(NRF52_PLATFORM) || defined(STM32_PLATFORM)
+  File f = fs->open(path, FILE_O_WRITE);
+#elif defined(RP2040_PLATFORM)
+  File f = fs->open(path, "a");
+#else
+  File f = fs->open(path, "a", true);
+#endif
+  if (!f) return false;
+  size_t w = f.write(src, len);
+  f.close();
+  return w == len;
+}
+
+size_t UITask::MishmeshStorage::readBlobAt(const char* key, size_t offset, uint8_t* dst, size_t cap) {
+  if (!ds || !key || !dst || cap == 0) return 0;
+  FILESYSTEM* fs = ds->getSecondaryFS() ? ds->getSecondaryFS() : ds->getPrimaryFS();
+  if (!fs) return 0;
+  char path[40];
+  mmPath(path, sizeof(path), key);
+  File f = ds->openRead(fs, path);
+  if (!f) return 0;
+  size_t n = 0;
+  if (f.seek(offset)) {
+    int r = f.read(dst, (uint16_t)(cap > 65535u ? 65535u : cap));
+    if (r > 0) n = (size_t)r;
+  }
+  f.close();
+  return n;
+}
+
+size_t UITask::MishmeshStorage::blobSize(const char* key) {
+  if (!ds || !key) return 0;
+  FILESYSTEM* fs = ds->getSecondaryFS() ? ds->getSecondaryFS() : ds->getPrimaryFS();
+  if (!fs) return 0;
+  char path[40];
+  mmPath(path, sizeof(path), key);
+  File f = ds->openRead(fs, path);
+  if (!f) return 0;
+  size_t n = (size_t)f.size();
+  f.close();
+  return n;
+}
+
+bool UITask::MishmeshStorage::removeBlob(const char* key) {
+  if (!ds || !key) return false;
+  FILESYSTEM* fs = ds->getSecondaryFS() ? ds->getSecondaryFS() : ds->getPrimaryFS();
+  if (!fs) return false;
+  char path[40];
+  mmPath(path, sizeof(path), key);
+  return fs->remove(path);
+}
+#endif
 

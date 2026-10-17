@@ -22,6 +22,7 @@ its heading with `## v<version>`.
   - Arrival alert and "Nearby alert" for contacts within a chosen radius, also with the screen off.
   - Location sharing as a "📍 lat,lon" message: one-shot from chat, or live for 1-8 h; Navigate on received locations.
 - GPS screen hides the heading below walking pace.
+- The mishmesh builds stay on the GCC 7.2 toolchain. With the GCC 14 toolchain that MeshCore 1.18 pins for nRF52, the Wio Tracker L1 OLED stayed blank.
 
 ## v1.6.0
 

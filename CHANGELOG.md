@@ -9,6 +9,10 @@ its heading with `## v<version>`.
 
 ## Unreleased
 
+## v1.7.1
+
+- Fix: on the Bluetooth builds of v1.7.0 the phone could not connect. The device showed up in the scan, but the connection hung and the device then disappeared from the scan. The extra RAM in v1.7.0 left too little heap for the Bluetooth task, which failed to start. The offline message queue now holds 224 messages instead of 256, which frees the memory.
+
 ## v1.7.0
 
 - MeshCore base updated to v1.18.0 (WiFi interface, new boards, GPS fast-fix,
